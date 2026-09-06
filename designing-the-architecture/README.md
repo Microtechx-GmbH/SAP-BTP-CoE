@@ -1,54 +1,81 @@
-# Designing the Architecture — Entra ID ↔ SAP BTP IAM
+# Microsoft Entra ID ↔ SAP BTP: Identity Architecture Reference
 
-This folder holds the working design notes for how Microsoft Entra ID integrates with SAP BTP for authentication and authorization. These are **design-phase documents** — brainstorming and pattern research written up before the formal implementation guide/runbook (see the repo root) gets locked in.
+This folder documents three proven integration patterns for connecting **Microsoft Entra ID** to **SAP Business Technology Platform (BTP)** for authentication and authorization. Together they form a complete architecture reference — from a lightweight SSO-only setup through to full lifecycle provisioning and unified governance — covering the full spectrum of what enterprise SAP landscapes actually require.
 
-Three patterns are documented, because no single one covers a real SAP landscape end to end — which pattern applies depends on what a given target system requires.
+> **Why this matters now:** SAP Identity Management (IDM) mainstream maintenance ends **December 31, 2027** (extended maintenance available through 2030 at additional cost, with no further functional releases). Microsoft and SAP jointly recommend Microsoft Entra ID as the target platform. Organizations beginning that migration today need a clear architecture to land on — these patterns are that architecture.
 
-## Contents
+---
 
-| File | Pattern | Use it when... |
-|---|---|---|
-| [`entra-sap-btp-sso.md`](./entra-sap-btp-sso.md) | **Federation + Shadow Users** — Entra → IAS (proxy) → BTP, no pre-provisioning. Access is granted purely via Entra group membership mapped to BTP Role Collections. | The target is a Cloud Foundry / XSUAA-based BTP app where authorization is entirely expressed as Role Collections. |
-| [`entra-btp-ips.md`](./entra-btp-ips.md) | **IPS Provisioning** — Entra → SAP Cloud Identity Services (Identity Provisioning) → target system, users/groups actively provisioned ahead of login. | The target has a native business-role/user object model (BTP ABAP Environment, SuccessFactors, S/4HANA Cloud, Ariba, etc.) or needs day-one access / strict JML deprovisioning / license counting. |
-| [`hybrid-setup.md`](./hybrid-setup.md) | **Hybrid** — both of the above, run side by side and routed per target system, unified under a single Microsoft Entra ID Governance (Access Packages) request/approval experience. | Real, mixed SAP landscapes — most of what SAP BTP CoE will actually build. **Start here** for the overall architecture; it links into the other two for implementation detail. |
+## Patterns at a Glance
 
-## Recommended Reading Order
+| Pattern | File | Core Mechanism | When to Use |
+|---|---|---|---|
+| **A — Federation + Shadow Users** | [`entra-sap-btp-sso.md`](./entra-sap-btp-sso.md) | Entra ID → IAS (SAML proxy) → BTP; users created automatically at first login; access driven by Entra group membership mapped to BTP Role Collections | Cloud Foundry / XSUAA-based BTP apps where authorization is entirely expressed as Role Collections |
+| **B — IPS Provisioning** | [`entra-btp-ips.md`](./entra-btp-ips.md) | Entra ID → SAP Cloud Identity Services (SCIM) → IPS → target system; users and groups provisioned ahead of any login event | Systems with a native business-role/user object model (BTP ABAP Environment, SuccessFactors, S/4HANA Cloud, Ariba); or where day-one access, license counting, or strict JML deprovisioning is required |
+| **Hybrid** | [`hybrid-setup.md`](./hybrid-setup.md) | Both patterns run side by side, routed per target system; unified under a single Microsoft Entra ID Governance (Access Packages) request/approval experience | Real, mixed SAP landscapes — the pattern most enterprises converge on |
 
-1. **`hybrid-setup.md`** — get the overall shape and the decision framework for routing a given target system to the right track first.
-2. **`entra-sap-btp-sso.md`** — implementation detail for Track A.
-3. **`entra-btp-ips.md`** — implementation detail for Track B.
+**Recommended reading order:** start with [`hybrid-setup.md`](./hybrid-setup.md) for the overall decision framework and routing logic, then read the pattern-specific docs for implementation detail.
 
-All three cross-link to each other; you can also jump straight to whichever track is relevant to the system you're currently onboarding.
+---
 
 ## Quick Decision Guide
 
 ```mermaid
 flowchart TD
-    Start(["New BTP app / SAP system"]) --> Q1{"Native business-role /\nuser object model?"}
-    Q1 -->|No - pure XSUAA Role Collections| A["entra-sap-btp-sso.md\n(Federation + Shadow Users)"]
+    Start(["New BTP app / SAP system"]) --> Q1{"Native business-role /\nuser object model?\n(ABAP Env, SuccessFactors,\nS/4HANA Cloud, Ariba)"}
+    Q1 -->|No — pure XSUAA Role Collections| A["Pattern A\nentra-sap-btp-sso.md\n(Federation + Shadow Users)"]
     Q1 -->|Yes| Q2{"Access must exist\nbefore first login?\n(licensing, day-one,\nstrict JML)"}
-    Q2 -->|Yes| B["entra-btp-ips.md\n(IPS Provisioning)"]
+    Q2 -->|Yes| B["Pattern B\nentra-btp-ips.md\n(IPS Provisioning)"]
     Q2 -->|No| A
-    A --> Gov["Register in Entra ID Governance\nAccess Package catalog"]
+    A --> Gov["Register groups in Entra ID Governance\nAccess Package catalog"]
     B --> Gov
+    Gov --> Hybrid["Hybrid pattern:\nhybrid-setup.md"]
 ```
 
-Full rationale for this decision flow, including the shared Entra ID Governance layer that sits on top of both tracks, is in `hybrid-setup.md`.
+---
 
-## Status
+## Architecture Principles
 
-These are **design notes**, not yet finalized architecture. They're the input to:
+These patterns are built on a small set of durable principles:
 
-- `../SAP BTP Identity & Access Governance Architecture Runbook.md`
-- `../SAP BTP Identity & Access Governance Implementation Guide.md`
-- `../PoC-guide.md`
+1. **Entra ID is the authoritative identity source.** No passwords are created or managed in SAP. All authentication flows back to Entra, including MFA and Conditional Access policy enforcement.
 
-As decisions get validated in a PoC or pilot, promote the relevant details into those documents and keep this folder as the historical design rationale / "why we chose this" reference.
+2. **SAP Cloud Identity Services – IAS is always the SAML proxy.** Entra never federates directly to BTP subaccounts or individual SAP applications. Trust is configured once in IAS and reused across all subaccounts and environments — one place for certificate management, one place for federation health monitoring.
 
-## Contributing
+3. **Provisioning and authentication are independent pipelines.** IPS (provisioning) and SAML SSO (authentication) share the same IAS tenant as their meeting point but operate independently. An outage in one does not break the other.
 
-If you add a new target system or pattern variant:
+4. **Authorization lives in Entra groups, not in SAP.** Whether a user gets a BTP Role Collection (Pattern A) or an ABAP business role (Pattern B) is determined by their Entra group membership. Granting or revoking access is a single group membership change in Entra — no SAP-side administration required for day-to-day access management.
 
-1. Run it through the decision guide above and record the outcome.
-2. If it fits an existing track, add it as a use case in that doc rather than creating a new file.
-3. If it genuinely needs a new pattern, add a new `.md` file here following the same structure (Overview → Architecture → Key Concepts → Design Decisions → Tutorial → Use Cases → When It Doesn't Fit → Operational Considerations → References) and link it from this README.
+5. **The request/approval experience is unified in Entra ID Governance.** End users and approvers should not need to know whether an access request results in a SAML group claim resolved at login, or a SCIM provisioning job — they interact with one Access Package catalog.
+
+---
+
+## Document Structure
+
+Each pattern document follows the same structure so you can navigate predictably across all three:
+
+1. **Overview** — what the pattern does and when to use it
+2. **Architecture** — component diagrams, sequence flows, and authorization model
+3. **Key Concepts** — glossary of the moving parts
+4. **Design Decisions & Rationale** — the *why* behind each architectural choice
+5. **Tutorial: Step-by-Step Setup** — actionable implementation guide
+6. **Use Cases** — concrete scenarios where the pattern fits
+7. **When This Pattern Does Not Fit** — explicit anti-patterns and boundaries
+8. **Operational Considerations & Gotchas** — production-readiness notes
+9. **References & Resources** — official Microsoft and SAP documentation
+
+---
+
+## Scope and Boundaries
+
+These documents cover:
+- Microsoft Entra ID (cloud-only) as the leading identity provider
+- SAP Cloud Identity Services (IAS + IPS) as the integration layer
+- SAP BTP — Cloud Foundry/XSUAA, BTP ABAP Environment
+- SAP SuccessFactors, S/4HANA Cloud, and Ariba as provisioning targets
+- Microsoft Entra ID Governance — Entitlement Management, Lifecycle Workflows
+
+Out of scope (addressed separately):
+- SAP on-premises systems (SAP ECC, on-prem S/4HANA via direct LDAP/SNC)
+- SAP GRC Access Control on-premises (the Entra ↔ SAP AC connector is in private preview as of mid-2026; track for future inclusion)
+- Non-Microsoft identity providers as the leading IdP

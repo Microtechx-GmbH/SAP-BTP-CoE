@@ -238,7 +238,7 @@ Flagging this so it isn't accidentally over-applied — worth a separate design 
 - [Plan deploying Microsoft Entra for user provisioning with SAP source and target applications](https://learn.microsoft.com/en-us/entra/identity/app-provisioning/plan-sap-user-source-and-target)
 - [Manage access to your SAP applications (Entra ID Governance)](https://learn.microsoft.com/en-us/entra/id-governance/sap)
 - [Add group claims to tokens for SAML applications](https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-fed-group-claims#add-group-claims-to-tokens-for-saml-applications-using-sso-configuration)
-- [Migrate identity management scenarios from SAP IDM to Microsoft Entra](https://learn.microsoft.com/en-us/entra/identity/app-provisioning/migrate-from-sap-idm)
+- [Migrate identity management scenarios from SAP IDM to Microsoft Entra](https://learn.microsoft.com/en-us/entra/id-governance/scenarios/migrate-from-sap-idm)
 
 **SAP documentation**
 - [SAP Cloud Identity Services – Identity Authentication overview](https://pages.community.sap.com/topics/cloud-identity-services/identity-authentication)
@@ -246,7 +246,7 @@ Flagging this so it isn't accidentally over-applied — worth a separate design 
 - [Assigning Role Collections to Users or User Groups](https://help.sap.com/viewer/65de2977205c403bbc107264b8eccf4b/Cloud/en-US/51acfc82c0c54db59de0a528f343902c.html)
 - [Shadow Users – SAP Help Portal](https://help.sap.com/docs/sap-api-management/sap-api-management/shadow-users)
 - [SAP tutorial: Connect Microsoft Entra ID to IAS in federation (proxy) mode](https://developers.sap.com/tutorials/cp-ias-azure-ad.html)
-- [SAP Note 2732890 — SAML assertion / role collection limits](https://launchpad.support.sap.com/?sap-support-cross-site-visitor-id=b73c7292f9a46d52#/notes/2732890) *(requires SAP support portal login)*
+- [SAP Note 2732890 — SAML assertion / role collection limits](https://me.sap.com/notes/2732890) *(requires SAP for Me login)*
 
 **Community write-ups (design walkthroughs / real implementations)**
 - [Understanding SSO in SAP BTP with IAS and Microsoft Entra ID (SAP Community)](https://community.sap.com/t5/technology-blog-posts-by-members/understanding-single-sign-on-sso-in-sap-btp-with-ias-and-microsoft-entra-id/ba-p/14386267)

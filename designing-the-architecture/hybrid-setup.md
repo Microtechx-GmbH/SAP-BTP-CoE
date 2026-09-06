@@ -1,6 +1,6 @@
 # Microsoft Entra ID → SAP BTP: Hybrid Architecture (Federation + Provisioning, Unified by Governance)
 
-> **Scenario scope:** This note describes the **hybrid** pattern most enterprises actually converge on — running the [federation/shadow-user pattern](./entra-btp-sso-shadow-users.md) and the [IPS provisioning pattern](./entra-btp-ips-provisioning.md) **side by side**, segmented by what each target SAP system requires, and tied together under a single **Microsoft Entra ID Governance** layer (Access Packages, approval workflows, Lifecycle Workflows) so end users have one consistent request experience regardless of which mechanism operates behind the scenes.
+> **Scenario scope:** This note describes the **hybrid** pattern most enterprises actually converge on — running the [federation/shadow-user pattern](./entra-sap-btp-sso.md) and the [IPS provisioning pattern](./entra-btp-ips.md) **side by side**, segmented by what each target SAP system requires, and tied together under a single **Microsoft Entra ID Governance** layer (Access Packages, approval workflows, Lifecycle Workflows) so end users have one consistent request experience regardless of which mechanism operates behind the scenes.
 
 ---
 
@@ -22,8 +22,8 @@
 
 Neither pure pattern covers a real enterprise SAP landscape on its own:
 
-- **Federation + shadow users** (Track A) is lightweight and perfect for Cloud Foundry/XSUAA-based BTP apps, but doesn't work for systems that need a persisted user object with business attributes *before* login (ABAP Environment, SuccessFactors, S/4HANA Cloud, Ariba).
-- **IPS provisioning** (Track B) handles those systems correctly, but is unnecessary integration overhead for simple Role-Collection-only apps.
+- **Federation + shadow users** ([Track A](./entra-sap-btp-sso.md)) is lightweight and perfect for Cloud Foundry/XSUAA-based BTP apps, but doesn't work for systems that need a persisted user object with business attributes *before* login (ABAP Environment, SuccessFactors, S/4HANA Cloud, Ariba).
+- **IPS provisioning** ([Track B](./entra-btp-ips.md)) handles those systems correctly, but is unnecessary integration overhead for simple Role-Collection-only apps.
 
 The pattern that actually shows up in production is: **use both, routed per target system, but present one unified access-request experience to end users** via Microsoft Entra ID Governance. A business user requesting "access to the Finance app" shouldn't need to know or care whether that request results in a SAML group claim resolved at login, or a SCIM provisioning job running overnight — they just request an Access Package and get approved.
 
@@ -134,7 +134,7 @@ flowchart TD
 | **Access Package** | A bundle of one or more resources (e.g., the Entra group that maps to a Track A Role Collection, *and* the Entra group that flows into a Track B provisioning pipeline) that a user requests as a single unit. |
 | **Lifecycle Workflows** | Entra ID Governance capability to automate tasks tied to Join/Move/Leave events (e.g., auto-add to an access package on hire, auto-remove on termination, trigger a welcome email or a Logic App callout). |
 | **Logic Apps extensibility** | Both Entitlement Management and Lifecycle Workflows can call out to Azure Logic Apps at key points (request submitted, assignment granted, assignment removed) — used to trigger custom SAP-side tasks beyond what native provisioning covers. |
-| **SAP Cloud Identity Access Governance (IAG) integration (Preview)** | An emerging deeper integration (announced at SAP Sapphire 2026) letting SAP IAG business roles be published directly into the Entra entitlement catalog, with approvals and Separation-of-Duties (SoD) enforcement handled natively across the Entra↔SAP boundary — see [§4](#4-design-decisions--rationale) and [§9](#9-references--resources) for status and links. |
+| **SAP Cloud Identity Access Governance (IAG) integration (Public Preview)** | Integration announced at SAP Sapphire 2026 and now in public preview: SAP IAG business roles can be published directly into the Entra entitlement catalog, with approvals and Separation-of-Duties (SoD) enforcement handled natively across the Entra↔SAP boundary — see [§4](#4-design-decisions--rationale) and [§9](#9-references--resources) for status and links. |
 | **Single IAS production tenant** | Both tracks share the same IAS tenant as their federation broker and (for Track B) identity source/target — this is what allows one certificate-management process and one place to reason about identity to serve both tracks. |
 
 ---
@@ -147,7 +147,7 @@ flowchart TD
 | **Share a single IAS production tenant across both tracks** | Both the SAML proxy (SSO) and the Hop-1/Hop-2 provisioning pipeline live in the same IAS tenant, which means one certificate-rollover process, one place to check federation health, and one Identity Directory as the meeting point for both tracks. |
 | **Put the request/approval experience in Entra ID Governance, not in either SAP system** | End users and approvers should not need to know which track their access maps to. Access Packages abstract that away — a single catalog entry can bundle a Track A group and a Track B group together (e.g., "Finance Suite" package granting both the BTP Finance app and the S/4HANA Cloud Finance business role in one request). |
 | **Automate JML with Lifecycle Workflows where possible, on top of both tracks** | Track A revokes access lazily (next login/session), Track B revokes on the next provisioning job cycle — neither is instantaneous. Lifecycle Workflows triggered directly off HR termination events (rather than waiting on a provisioning job schedule) tightens this gap for both tracks simultaneously. |
-| **Track the SAP IAG integration (Preview) as a future consolidation point, not a current dependency** | As of the SAP Sapphire 2026 announcements, Microsoft and SAP are deepening this further — publishing SAP business roles directly into the Entra entitlement catalog with native SoD enforcement, and even a private-preview connector back to on-prem SAP GRC Access Control. This could eventually reduce the amount of custom Track B integration work, but it's a preview capability today and shouldn't be load-bearing in a production design yet. |
+| **Track the SAP IAG integration (Public Preview) as a near-term consolidation point** | The SAP IAG ↔ Entra integration announced at SAP Sapphire 2026 is now in public preview: SAP business roles published into the Entra entitlement catalog, approvals and SoD enforcement handled natively, and a private-preview connector to on-prem SAP GRC Access Control. This will reduce the amount of custom Track B mapping work over time, but confirm GA status and support terms before making it load-bearing in a production timeline. |
 | **Document the routing decision per target system explicitly (an ADR-style record)** | Without a written record of "why does System X use Track A and System Y use Track B," teams tend to re-litigate this per project or copy the wrong pattern into a new system that doesn't fit it. |
 
 ---
@@ -156,7 +156,7 @@ flowchart TD
 
 ### Step 1 — Establish the Shared Foundation
 
-1. Stand up (or confirm) a single **production IAS tenant** federated with Microsoft Entra ID as a Corporate Identity Provider (see the [federation doc, Step 3](./entra-btp-sso-shadow-users.md#step-3--configure-ias-as-corporate-identity-provider) for detail).
+1. Stand up (or confirm) a single **production IAS tenant** federated with Microsoft Entra ID as a Corporate Identity Provider (see the [federation doc, Step 3](./entra-sap-btp-sso.md#step-3--configure-ias-as-corporate-identity-provider) for detail).
 2. Put a certificate-rollover process in place up front — it's shared infrastructure for both tracks, so get it right once.
 
 ### Step 2 — Inventory and Classify Target Systems
@@ -165,11 +165,11 @@ For every BTP application / SAP system in scope, run it through the [decision fl
 
 ### Step 3 — Implement Track A for Qualifying Systems
 
-Follow the [federation + shadow-user tutorial](./entra-btp-sso-shadow-users.md#5-tutorial-step-by-step-setup) per subaccount: Entra groups → group claim → BTP trust config with shadow users enabled → Role Collection mapping.
+Follow the [federation + shadow-user tutorial](./entra-sap-btp-sso.md#5-tutorial-step-by-step-setup) per subaccount: Entra groups → group claim → BTP trust config with shadow users enabled → Role Collection mapping.
 
 ### Step 4 — Implement Track B for Qualifying Systems
 
-Follow the [IPS provisioning tutorial](./entra-btp-ips-provisioning.md#5-tutorial-step-by-step-setup) per target: choose Hop-1 option, configure IPS Hop-2 target/proxy system, map groups to business roles, configure SSO separately for authentication.
+Follow the [IPS provisioning tutorial](./entra-btp-ips.md#5-tutorial-step-by-step-setup) per target: choose Hop-1 option, configure IPS Hop-2 target/proxy system, map groups to business roles, configure SSO separately for authentication.
 
 ### Step 5 — Build the Unified Governance Catalog
 
@@ -187,9 +187,9 @@ Follow the [IPS provisioning tutorial](./entra-btp-ips-provisioning.md#5-tutoria
 3. On termination: trigger immediate removal from the underlying groups — this is what tightens the "next login" (Track A) / "next job cycle" (Track B) revocation gap.
 4. Where SAP-side actions are needed beyond group removal, use the Logic Apps extensibility point to call out to a custom workflow.
 
-### Step 7 — (Forward-Looking) Evaluate SAP IAG Integration
+### Step 7 — Evaluate SAP IAG Integration
 
-If your SAP landscape includes SAP Cloud Identity Access Governance or you're still on SAP GRC Access Control, track the Microsoft Entra ↔ SAP IAG integration (public preview as of SAP Sapphire 2026) as a candidate to consolidate SAP business-role governance directly into the same Entra entitlement catalogs used in Step 5 — reducing the amount of bespoke Track B mapping work over time.
+If your SAP landscape includes SAP Cloud Identity Access Governance or you're still on SAP GRC Access Control, evaluate the Microsoft Entra ↔ SAP IAG integration (in public preview as of mid-2026) as a candidate to consolidate SAP business-role governance directly into the same Entra entitlement catalogs used in Step 5 — reducing the amount of bespoke Track B mapping work over time. Confirm GA status and support terms before building a hard dependency on it in a production timeline.
 
 ### Step 8 — Test End-to-End Across Both Tracks
 
@@ -220,11 +220,11 @@ If your SAP landscape includes SAP Cloud Identity Access Governance or you're st
 
 ## 8. Operational Considerations & Gotchas
 
-- **Revocation timing differs by track** — Track A revokes on next re-authentication; Track B revokes on the next provisioning job run. Document these differing SLAs so compliance/audit expectations are set correctly, and use Lifecycle Workflows to tighten both where termination speed matters.
+- **Revocation timing differs by track** — Track A revokes on next re-authentication (session/token lifetime); Track B revokes on the next IPS provisioning job run by default, though IPS real-time provisioning (API-triggered) can tighten this when explicitly configured. Document the applicable SLA per track so compliance/audit expectations are set correctly; use Lifecycle Workflows to trigger revocation immediately on HR termination events rather than waiting for the next job cycle.
 - **Avoid duplicate or conflicting groups** — with two tracks and a governance catalog on top, it's easy to end up with overlapping groups that both grant access to the same resource through different paths. Keep the classification record from Step 2 authoritative.
 - **Combined monitoring surface** — you now need to watch SSO/federation health (shared IAS tenant), IPS provisioning job status (Track B), *and* Access Package approval SLAs (governance layer) — treat these as three related but distinct monitoring domains.
 - **Governance catalog sprawl** — as more Access Packages are created, review and prune regularly; entitlement management can itself become an unmanaged system if catalogs aren't owned and reviewed.
-- **Preview-feature risk** — the SAP IAG integration and the on-prem SAP AC connector are (as of SAP Sapphire 2026) public and private preview respectively; don't build a hard dependency on them for a production timeline without confirming GA status and support terms first.
+- **Preview-feature risk** — the SAP IAG integration is in public preview and the on-prem SAP AC connector is in private preview (as of mid-2026); don't build a hard production dependency on either without confirming GA status and support terms first.
 - **Certificate rollover is still a single shared risk** — because both tracks route through the same IAS tenant, a lapsed certificate on the Entra↔IAS or IAS↔BTP hop breaks *both* tracks simultaneously, not just one.
 - **Cost/licensing** — Microsoft Entra ID Governance (Entitlement Management, Lifecycle Workflows) requires appropriate Entra licensing (P2/Governance tier); factor this into the business case for the unified layer versus running the two tracks independently.
 
@@ -237,7 +237,7 @@ If your SAP landscape includes SAP Cloud Identity Access Governance or you're st
 - [Manage access to your SAP applications – Microsoft Entra ID Governance](https://learn.microsoft.com/en-us/entra/id-governance/sap)
 - [What is entitlement management? – Microsoft Entra ID Governance](https://learn.microsoft.com/en-us/entra/id-governance/entitlement-management-overview)
 - [Microsoft Entra SAP IAG integration (Preview)](https://learn.microsoft.com/en-us/entra/id-governance/entitlement-management-sap-integration)
-- [Migrate identity management scenarios from SAP IDM to Microsoft Entra (Lifecycle Workflows, JML)](https://learn.microsoft.com/en-us/entra/identity/app-provisioning/migrate-from-sap-idm)
+- [Migrate identity management scenarios from SAP IDM to Microsoft Entra (Lifecycle Workflows, JML)](https://learn.microsoft.com/en-us/entra/id-governance/scenarios/migrate-from-sap-idm)
 - [Plan deploying Microsoft Entra for user provisioning with SAP source and target applications](https://learn.microsoft.com/en-us/entra/identity/app-provisioning/plan-sap-user-source-and-target)
 - [Automate user provisioning and deprovisioning into SAP BTP with Microsoft Entra ID](https://learn.microsoft.com/en-us/entra/identity/saas-apps/sap-btp-provisioning-tutorial)
 
@@ -251,9 +251,9 @@ If your SAP landscape includes SAP Cloud Identity Access Governance or you're st
 - [SAP + Microsoft Entra: The Future of Identity Governance](https://www.sapsecurityexpert.com/sap-cis/sap-microsoft-entra-identity-governance) — overview of the SAP IAG and on-prem GRC AC connector direction
 
 **Companion documents in this set**
-- [`entra-btp-sso-shadow-users.md`](./entra-btp-sso-shadow-users.md) — Track A in full detail
-- [`entra-btp-ips-provisioning.md`](./entra-btp-ips-provisioning.md) — Track B in full detail
+- [`entra-sap-btp-sso.md`](./entra-sap-btp-sso.md) — Track A in full detail
+- [`entra-btp-ips.md`](./entra-btp-ips.md) — Track B in full detail
 
 ---
 
-*Document scope note: this note assumes both companion documents as prerequisites and focuses only on the routing decision, the shared foundation, and the governance layer that ties them together. Implementation detail for each individual track lives in its own document.*
+*Document scope note: this note assumes [`entra-sap-btp-sso.md`](./entra-sap-btp-sso.md) and [`entra-btp-ips.md`](./entra-btp-ips.md) as prerequisites and focuses only on the routing decision, the shared foundation, and the governance layer that ties them together. Implementation detail for each individual track lives in its own document.*

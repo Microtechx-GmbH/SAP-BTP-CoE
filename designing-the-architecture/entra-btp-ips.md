@@ -1,6 +1,6 @@
 # Microsoft Entra ID → SAP BTP: Identity Provisioning (IPS) with Role Collection Assignment
 
-> **Scenario scope:** This note covers the **provisioning-based** pattern — users (and optionally groups) are actively created, updated, and removed in SAP BTP / SAP Cloud Identity Services ahead of and independent of any login event, using SAP Cloud Identity Services – Identity Provisioning (IPS). This complements, and does **not** replace, SSO — provisioning handles the user/authorization *lifecycle*, while SAML federation still handles *authentication*. Contrast this with the [shadow-user/federation-only pattern](./entra-btp-sso-shadow-users.md), which never creates a user until first login.
+> **Scenario scope:** This note covers the **provisioning-based** pattern — users (and optionally groups) are actively created, updated, and removed in SAP BTP / SAP Cloud Identity Services ahead of and independent of any login event, using SAP Cloud Identity Services – Identity Provisioning (IPS). This complements, and does **not** replace, SSO — provisioning handles the user/authorization *lifecycle*, while SAML federation still handles *authentication*. Contrast this with the [shadow-user/federation-only pattern](./entra-sap-btp-sso.md), which never creates a user until first login.
 
 ---
 
@@ -190,7 +190,7 @@ Decide:
 
 ### Step 5 — Configure Single Sign-On (Independent of Provisioning)
 
-Provisioning does not replace authentication. Set up SAML SSO for the same users, following the standard Entra ↔ IAS ↔ BTP federation configuration (see the companion [shadow-user/federation note](./entra-btp-sso-shadow-users.md) for the detailed steps — the SSO configuration itself is identical; the only difference is that here, the user record already exists before the first login instead of being created by it).
+Provisioning does not replace authentication. Set up SAML SSO for the same users, following the standard Entra ↔ IAS ↔ BTP federation configuration (see the companion [shadow-user/federation note](./entra-sap-btp-sso.md) for the detailed steps — the SSO configuration itself is identical; the only difference is that here, the user record already exists before the first login instead of being created by it).
 
 ### Step 6 — Manage Ongoing Access via Group → Role Collection / Business Role Mapping
 
@@ -218,7 +218,7 @@ Provisioning does not replace authentication. Set up SAML SSO for the same users
 
 ## 7. When This Pattern Does *Not* Fit
 
-- **Simple Cloud Foundry / XSUAA-only BTP applications** where Role Collections are the entire authorization model — the [federation + shadow-user pattern](./entra-btp-sso-shadow-users.md) achieves the same outcome with far less integration surface (no SCIM jobs, schema mappings, or job monitoring to maintain).
+- **Simple Cloud Foundry / XSUAA-only BTP applications** where Role Collections are the entire authorization model — the [federation + shadow-user pattern](./entra-sap-btp-sso.md) achieves the same outcome with far less integration surface (no SCIM jobs, schema mappings, or job monitoring to maintain).
 - **Low-friction, fast-changing project access** (contractors, short-term app access) where the overhead of a provisioning job cycle (vs. instant group-claim resolution at login) isn't worth it.
 - Situations where you specifically want **zero standing accounts** in SAP for users who never actually use the system — provisioning creates real accounts regardless of whether the person ever logs in, which shadow users avoid entirely.
 
@@ -226,7 +226,7 @@ Provisioning does not replace authentication. Set up SAML SSO for the same users
 
 ## 8. Operational Considerations & Gotchas
 
-- **Job scheduling and propagation delay:** IPS provisioning jobs run on a schedule, not in real time. Deprovisioning/role changes are only as fast as the job interval — factor this into your security/compliance SLAs, especially for terminations.
+- **Job scheduling and propagation delay:** By default, IPS provisioning runs on a scheduled job interval. Deprovisioning/role changes are only as fast as that interval — factor this into your security/compliance SLAs, especially for terminations. IPS does support a real-time provisioning mode (triggered via API call from an external system or Lifecycle Workflow) that eliminates the wait, but it must be explicitly configured; the scheduled-job baseline is what governs most deployments out of the box.
 - **Schema/attribute mapping effort:** each target system (ABAP Environment, XSUAA, SuccessFactors, etc.) has its own expected schema and read/write transformations — this is real integration work per target, unlike the federation pattern's single group-claim mechanism.
 - **Proxy system permissions:** provisioning into systems like BTP ABAP Environment requires proxy system access in the IPS admin console (the "Proxy Systems" tile) — if it's not visible, you need to raise an incident under component `BC-IAM-IPS` to get it enabled.
 - **Communication User/System setup (ABAP Environment):** requires uploading the IPS target's certificate to a dedicated Communication User and marking the Communication System "Inbound Only" — an easy step to miss during initial setup.
@@ -245,14 +245,14 @@ Provisioning does not replace authentication. Set up SAML SSO for the same users
 - [Configure SAP Cloud Identity Services for automatic user provisioning with Microsoft Entra ID](https://learn.microsoft.com/en-us/entra/identity/saas-apps/sap-cloud-platform-identity-authentication-provisioning-tutorial)
 - [Automate user provisioning and deprovisioning to SaaS applications with Microsoft Entra ID (general concepts)](https://learn.microsoft.com/en-us/entra/identity/app-provisioning/user-provisioning)
 - [Manage access to your SAP applications (Entra ID Governance)](https://learn.microsoft.com/en-us/entra/id-governance/sap)
-- [Migrate identity management scenarios from SAP IDM to Microsoft Entra](https://learn.microsoft.com/en-us/entra/identity/app-provisioning/migrate-from-sap-idm)
+- [Migrate identity management scenarios from SAP IDM to Microsoft Entra](https://learn.microsoft.com/en-us/entra/id-governance/scenarios/migrate-from-sap-idm)
 
 **SAP documentation**
 - [SAP Cloud Identity Services – Identity Provisioning overview](https://pages.community.sap.com/topics/cloud-identity-services/identity-provisioning)
 - [Provisioning to SAP BTP ABAP environment (target system)](https://help.sap.com/docs/cloud-identity-services/cloud-identity-services/target-sap-btp-abap-environment)
 - [Provisioning to SAP BTP XS Advanced UAA / Cloud Foundry (target system)](https://help.sap.com/docs/cloud-identity-services/cloud-identity-services/target-sap-btp-xs-advanced-uaa-cloud-foundry)
 - [Configuring Microsoft Azure Active Directory as a source system in IPS](https://help.sap.com/docs/identity-provisioning/identity-provisioning/microsoft-azure-active-directory)
-- [SAP tutorial: Provision Users into your SAP BTP ABAP Environment](https://developers.sap.com/tutorials/abap-environment-ips..html)
+- [SAP tutorial: Provision Users into your SAP BTP ABAP Environment](https://developers.sap.com/tutorials/abap-environment-ips.html)
 - [SAP blog: Provision users from Microsoft Azure AD to SAP Cloud Identity Services – Identity Authentication](https://blogs.sap.com/2022/02/04/provision-users-from-microsoft-azure-ad-to-sap-cloud-identity-services-identity-authentication/)
 
 **Community write-ups (design walkthroughs / real implementations)**
@@ -262,4 +262,4 @@ Provisioning does not replace authentication. Set up SAML SSO for the same users
 
 ---
 
-*Document scope note: this note deliberately excludes the pure federation/shadow-user pattern (no pre-provisioning), which is documented separately in [`entra-btp-sso-shadow-users.md`](./entra-btp-sso-shadow-users.md). Most real landscapes end up running both patterns simultaneously, segmented by target system capability — see each document's "When This Pattern Does Not Fit" section for the boundary.*
+*Document scope note: this note deliberately excludes the pure federation/shadow-user pattern (no pre-provisioning), which is documented separately in [`entra-sap-btp-sso.md`](./entra-sap-btp-sso.md). Most real landscapes end up running both patterns simultaneously, segmented by target system capability — see each document's "When This Pattern Does Not Fit" section for the boundary.*
