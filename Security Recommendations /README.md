@@ -1,13 +1,7 @@
 # SAP BTP Identity Security Recommendations Lab
 
-This lab converts the Identity Authentication and Identity Provisioning rows from the
-exported **SAP BTP Security Recommendations** page into executable configuration and
+This lab relates to best practices regarding Identity Authentication and Identity Provisioning, turned into executable configuration and
 verification exercises.
-
-> **Source and currency.** The source export was captured on 2026-10-22. The
-> configuration links below are the related links in the recommendation table. SAP Help
-> is dynamically rendered, so menu names and screenshots can change; use the linked
-> page as the authority for the current UI and tenant-specific prerequisites.
 
 ## Scope
 
